@@ -1,0 +1,203 @@
+// Element Plus theme overrides for anime aesthetic
+// Using Element Plus CSS variables: https://element-plus.org/en-US/guide/theming.html
+
+:root {
+  // Primary color
+  --el-color-primary: #7C6FF7;
+  --el-color-primary-light-3: #A99DF8;
+  --el-color-primary-light-5: #C4BCFC;
+  --el-color-primary-light-7: #DFD9FD;
+  --el-color-primary-light-8: #EDE9FE;
+  --el-color-primary-light-9: #F5F3FF;
+  --el-color-primary-dark-2: #5B4FCC;
+
+  // Other semantic colors
+  --el-color-success: #6BCB77;
+  --el-color-warning: #FFB84D;
+  --el-color-danger: #FF6B6B;
+  --el-color-info: #4FC3F7;
+
+  // Borders
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 9999px;
+
+  // Font
+  --el-font-family: var(--font-family);
+}
+
+:root.dark {
+  --el-color-primary: #A99DF8;
+  --el-color-primary-light-3: #8C7DF0;
+  --el-color-primary-light-5: #7C6FF7;
+  --el-color-primary-dark-2: #C4BCFC;
+
+  --el-color-success: #8FD99A;
+  --el-color-warning: #FFC87D;
+  --el-color-danger: #FF8F8F;
+  --el-color-info: #73D8FD;
+
+  // Dark backgrounds
+  --el-bg-color: #242133;
+  --el-bg-color-overlay: #2A2742;
+  --el-fill-color: #2A2742;
+  --el-fill-color-light: #3A3550;
+  --el-fill-color-blank: #1A1726;
+  --el-border-color: #3A3550;
+  --el-border-color-light: #2E2A42;
+  --el-border-color-lighter: #3A3550;
+  --el-text-color-primary: #E8E4F0;
+  --el-text-color-regular: #A6A0B8;
+  --el-text-color-secondary: #6E6880;
+  --el-text-color-placeholder: #6E6880;
+}
+
+// Button overrides
+.el-button {
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+
+  &--primary {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+
+    &:hover {
+      background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  &--large {
+    border-radius: var(--radius-lg);
+  }
+}
+
+// Input overrides
+.el-input {
+  --el-input-bg-color: var(--color-bg-input);
+
+  .el-input__wrapper {
+    border-radius: var(--radius-md);
+    box-shadow: none;
+    border: 1px solid var(--color-border);
+    transition: all var(--transition-fast);
+
+    &:hover {
+      border-color: var(--color-primary-light);
+    }
+
+    &.is-focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(124, 111, 247, 0.15);
+    }
+  }
+}
+
+// Dialog overrides
+.el-dialog {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+
+  .el-dialog__header {
+    border-bottom: 1px solid var(--color-border-light);
+    padding: 20px 24px;
+    margin: 0;
+  }
+
+  .el-dialog__body {
+    padding: 24px;
+  }
+
+  .el-dialog__footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--color-border-light);
+  }
+}
+
+.el-overlay {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+// Message box
+.el-message-box {
+  border-radius: var(--radius-lg);
+}
+
+// Dropdown menu
+.el-dropdown-menu {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-lg);
+}
+
+.el-dropdown-menu__item {
+  border-radius: var(--radius-sm);
+  margin: 2px 4px;
+
+  &:hover {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+  }
+}
+
+// Table
+.el-table {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+// Tag
+.el-tag {
+  border-radius: var(--radius-full);
+  font-weight: 500;
+}
+
+// Menu
+.el-menu {
+  border-right: none !important;
+  background: transparent !important;
+}
+
+// Loading/message
+.el-message {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.el-notification {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+// Select
+.el-select {
+  .el-select__wrapper {
+    border-radius: var(--radius-md);
+    box-shadow: none;
+    border: 1px solid var(--color-border);
+  }
+}
+
+// Switch
+.el-switch {
+  .el-switch__core {
+    border-radius: var(--radius-full);
+  }
+}
+
+// Avatar
+.el-avatar {
+  --el-avatar-bg-color: var(--color-primary-light);
+}
+
+// Form
+.el-form-item__label {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}

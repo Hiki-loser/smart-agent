@@ -1,0 +1,26 @@
+# Multi-stage build for SmartAgent Chat Service
+FROM maven:3.9-eclipse-temurin-21 AS builder
+
+WORKDIR /build
+COPY backend/pom.xml ./pom.xml
+COPY backend/common/pom.xml ./common/pom.xml
+COPY backend/chat/pom.xml ./chat/pom.xml
+
+# Download dependencies (layer cache)
+RUN mvn dependency:go-offline -pl chat -am -q
+
+COPY backend/common/src ./common/src
+COPY backend/chat/src ./chat/src
+
+RUN mvn package -DskipTests -pl chat -am -q
+
+FROM eclipse-temurin:21-jre-alpine
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
+WORKDIR /app
+COPY --from=builder /build/chat/target/*.jar app.jar
+
+EXPOSE 8082
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

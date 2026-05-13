@@ -1,0 +1,205 @@
+// Markdown content styles for AI chat messages
+.markdown-content {
+  line-height: 1.7;
+  word-break: break-word;
+  overflow-wrap: break-word;
+
+  h1, h2, h3, h4, h5, h6 {
+    margin: 1em 0 0.5em;
+    font-weight: 600;
+    line-height: 1.3;
+
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  h1 { font-size: 1.5em; }
+  h2 { font-size: 1.35em; border-bottom: 1px solid var(--color-border-light); padding-bottom: 0.3em; }
+  h3 { font-size: 1.2em; }
+  h4 { font-size: 1.1em; }
+
+  p {
+    margin: 0.5em 0;
+
+    &:first-child {
+      margin-top: 0;
+    }
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  strong {
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  em {
+    font-style: italic;
+  }
+
+  a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-decoration-color: var(--color-primary-light);
+    text-underline-offset: 2px;
+
+    &:hover {
+      color: var(--color-primary-dark);
+    }
+  }
+
+  ul, ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+
+    li {
+      margin: 0.25em 0;
+    }
+  }
+
+  ul {
+    list-style-type: disc;
+  }
+
+  ol {
+    list-style-type: decimal;
+  }
+
+  blockquote {
+    margin: 0.75em 0;
+    padding: 8px 16px;
+    border-left: 3px solid var(--color-primary);
+    background-color: var(--color-bg-input);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    color: var(--color-text-secondary);
+
+    p {
+      margin: 0.25em 0;
+    }
+  }
+
+  code {
+    font-family: var(--font-family-mono);
+    font-size: 0.9em;
+    background-color: var(--color-bg-input);
+    color: var(--color-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-light);
+  }
+
+  pre {
+    margin: 0.75em 0;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--color-border-light);
+
+    code {
+      display: block;
+      padding: 16px;
+      overflow-x: auto;
+      background-color: var(--color-bg-sidebar);
+      color: var(--color-text-primary);
+      border: none;
+      font-size: 0.85em;
+      line-height: 1.6;
+    }
+  }
+
+  // Code block copy button
+  .code-block-wrapper {
+    position: relative;
+    margin: 0.75em 0;
+
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      color: var(--color-text-muted);
+      cursor: pointer;
+      opacity: 0;
+      transition: all var(--transition-fast);
+
+      &:hover {
+        color: var(--color-primary);
+        border-color: var(--color-primary);
+      }
+    }
+
+    &:hover .copy-btn {
+      opacity: 1;
+    }
+  }
+
+  table {
+    width: 100%;
+    margin: 0.75em 0;
+    border-collapse: collapse;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--color-border-light);
+
+    th, td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--color-border-light);
+    }
+
+    th {
+      background-color: var(--color-bg-input);
+      font-weight: 600;
+      font-size: 0.9em;
+      color: var(--color-text-secondary);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background-color: var(--color-bg-input);
+    }
+  }
+
+  hr {
+    margin: 1em 0;
+    border: none;
+    border-top: 1px solid var(--color-border);
+  }
+
+  img {
+    max-width: 100%;
+    border-radius: var(--radius-md);
+    margin: 0.5em 0;
+  }
+
+  // Inline HTML / kbd
+  kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 0.85em;
+    font-family: var(--font-family-mono);
+    background-color: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+}
+
+// Typing cursor for streaming text
+.streaming-cursor::after {
+  content: '|';
+  display: inline;
+  animation: typing-cursor 1s step-end infinite;
+  color: var(--color-primary);
+  font-weight: 700;
+}

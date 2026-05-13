@@ -1,0 +1,3 @@
+spring:
+  jwt:
+    secret: your_jwt_secret

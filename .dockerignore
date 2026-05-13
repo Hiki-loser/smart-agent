@@ -1,0 +1,132 @@
+############################
+# Node.js / Frontend
+############################
+**/node_modules
+**/dist
+**/dist-ssr
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm
+.yarn
+.pnpm-store
+
+############################
+# Java / Maven
+############################
+**/target
+*.class
+*.jar
+*.war
+*.ear
+!.mvn/wrapper/maven-wrapper.jar
+
+############################
+# IDE
+############################
+.idea
+.vscode
+*.iml
+*.iws
+*.ipr
+.trae
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+.project
+.classpath
+.settings
+
+############################
+# Git
+############################
+.git
+.gitattributes
+.gitignore
+.gitmodules
+
+############################
+# OS
+############################
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+############################
+# Logs
+############################
+logs
+*.log
+
+############################
+# Environment & Secrets
+############################
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+*.truststore
+application-local.yml
+application-dev.yml
+application-*.local.yml
+
+############################
+# Docker
+############################
+docker-compose.override.yml
+.dockerignore
+
+############################
+# Documentation & Config
+############################
+*.md
+LICENSE
+CHANGELOG*
+
+############################
+# Temp & Backup
+############################
+*.tmp
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+*.pid
+
+############################
+# Build Cache
+############################
+.cache
+.gradle
+.mvn
+**/.mvn
+
+############################
+# Test Coverage
+############################
+coverage
+*.lcov
+.nyc_output
+
+############################
+# Claude / AI Tools
+############################
+.claude
+.cursor
+.copilot
+
+############################
+# Database
+############################
+*.db
+*.sqlite
+*.sqlite3

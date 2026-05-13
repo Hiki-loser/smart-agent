@@ -1,0 +1,27 @@
+# =============================================================
+# Memory 模块配置示例
+# 复制此文件为 application-local.yml 并填入实际值
+# =============================================================
+
+# MySQL 数据源
+# MYSQL_HOST: localhost
+# MYSQL_PORT: 3306
+# MYSQL_USERNAME: root
+# MYSQL_PASSWORD: your_password
+
+# Nacos 注册中心
+# NACOS_SERVER_ADDR: localhost:8848
+
+# RocketMQ
+# ROCKETMQ_NAME_SRV: localhost:9876
+
+# AI Model (用于摘要生成)
+# AI_MODEL_API_KEY: your_api_key
+# AI_MODEL_BASE_URL: https://api.deepseek.com
+# AI_MODEL_CHAT_MODEL: deepseek-v4-flash
+
+# memory:
+#   summary:
+#     trigger-round-threshold: 8
+#   context:
+#     recent-message-limit: 12

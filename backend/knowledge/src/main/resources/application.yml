@@ -1,0 +1,44 @@
+server:
+  port: 8083
+spring:
+  application:
+    name: smart-agent-knowledge
+  active: local
+  config:
+    import:
+      - optional:classpath:application-local.yml
+      - optional:file:./application-local.yml
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        register-enabled: true
+        prefer-ip-address: true
+  datasource:
+    url: jdbc:mysql://localhost:3306/smart_agent?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+ai:
+  model:
+    api-key: ${AI_MODEL_API_KEY:}
+    base-url: ${AI_MODEL_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+    embedding-model-name: ${AI_MODEL_EMBEDDING_MODEL:text-embedding-v4}
+    embedding-dimension: ${AI_MODEL_EMBEDDING_DIMENSION:1024}
+    timeout-seconds: ${AI_MODEL_TIMEOUT_SECONDS:60}
+
+milvus:
+  host: ${MILVUS_HOST:localhost}
+  port: ${MILVUS_PORT:19530}
+  collection-name: ${MILVUS_COLLECTION_NAME:smart_agent_knowledge}
+
+rocketmq:
+  name-server: localhost:9876
+  producer:
+    group: chat-producer-group
+  consumer:
+    group: document-process-consumer-group knowledge-base-init-consumer-group knowledge-query-result-consumer-group
+logging:
+  level:
+    root: info

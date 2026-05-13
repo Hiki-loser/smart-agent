@@ -1,0 +1,12 @@
+spring:
+  mysql:
+    username: root
+    password: your_mysql_key
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+  jwt:
+    secret: your_jwt_secret

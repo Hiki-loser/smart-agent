@@ -1,0 +1,292 @@
+services:
+  # ========== 基础设施 ==========
+
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: smart-agent-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_ROOT_HOST: "%"
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ../backend/user/src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01-user-schema.sql:ro
+    networks:
+      - smart-agent-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: smart-agent-redis
+    restart: always
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - smart-agent-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Nacos 注册中心（后端核心依赖）
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    container_name: smart-agent-nacos
+    restart: always
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+    ports:
+      - "${NACOS_PORT:-8848}:8848"
+      - "9848:9848"
+    networks:
+      - smart-agent-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:8848/nacos/v1/console/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # RocketMQ Nameserver（聊天服务依赖）
+  rocketmq-nameserver:
+    image: apache/rocketmq:4.9.7
+    container_name: smart-agent-rocketmq-nameserver
+    restart: always
+    command: sh mqnamesrv
+    ports:
+      - "${ROCKETMQ_PORT:-9876}:9876"
+    networks:
+      - smart-agent-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9876/ || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RocketMQ Broker（聊天服务依赖）
+  rocketmq-broker:
+    image: apache/rocketmq:4.9.7
+    container_name: smart-agent-rocketmq-broker
+    restart: always
+    command: sh mqbroker -n rocketmq-nameserver:9876
+    ports:
+      - "10911:10911"
+    depends_on:
+      - rocketmq-nameserver
+    networks:
+      - smart-agent-net
+
+  # Elasticsearch（聊天服务消息归档）
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: smart-agent-elasticsearch
+    restart: always
+    environment:
+      - discovery.type=single-node
+      - ELASTIC_PASSWORD=${ELASTICSEARCH_PASSWORD:-smart123}
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+    ports:
+      - "${ES_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - smart-agent-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u elastic:${ELASTICSEARCH_PASSWORD:-smart123} http://localhost:9200/_cluster/health || exit 0"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+
+  # ========== 可选高级基础设施 ==========
+
+  # etcd（Milvus 元数据存储）
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: smart-agent-etcd
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+    command: >
+      etcd
+      --advertise-client-urls=http://etcd:2379
+      --listen-client-urls=http://0.0.0.0:2379
+      --data-dir=/etcd
+    volumes:
+      - etcd-data:/etcd
+    networks:
+      - smart-agent-net
+    profiles:
+      - milvus
+
+  # MinIO（Milvus 对象存储）
+  minio:
+    image: minio/minio:RELEASE.2024-04-18T19-09-19Z
+    container_name: smart-agent-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9001:9001"
+      - "9000:9000"
+    volumes:
+      - minio-data:/data
+    networks:
+      - smart-agent-net
+    profiles:
+      - milvus
+
+  # Milvus 向量数据库
+  milvus:
+    image: milvusdb/milvus:v2.4.0
+    container_name: smart-agent-milvus
+    restart: always
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    depends_on:
+      - etcd
+      - minio
+    volumes:
+      - milvus-data:/var/lib/milvus
+    networks:
+      - smart-agent-net
+    profiles:
+      - milvus
+
+  # ========== 后端微服务 ==========
+
+  # Spring Cloud Gateway 网关
+  gateway:
+    build:
+      context: ..
+      dockerfile: env/Dockerfile.gateway
+    image: smart-agent-gateway:latest
+    container_name: smart-agent-gateway
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      NACOS_SERVER_ADDR: nacos:8848
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET:-smart-agent-secret-key-smart-agent-2026}
+    ports:
+      - "8080:8080"
+    depends_on:
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - smart-agent-net
+
+  # 用户服务
+  user:
+    build:
+      context: ..
+      dockerfile: env/Dockerfile.user
+    image: smart-agent-user:latest
+    container_name: smart-agent-user
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      NACOS_SERVER_ADDR: nacos:8848
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USERNAME: ${MYSQL_USERNAME:-root}
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET:-smart-agent-secret-key-smart-agent-2026}
+    depends_on:
+      nacos:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - smart-agent-net
+
+  # 聊天服务
+  chat:
+    build:
+      context: ..
+      dockerfile: env/Dockerfile.chat
+    image: smart-agent-chat:latest
+    container_name: smart-agent-chat
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      NACOS_SERVER_ADDR: nacos:8848
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USERNAME: ${MYSQL_USERNAME:-root}
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      ELASTICSEARCH_URIS: ${ELASTICSEARCH_URIS:-http://elasticsearch:9200}
+      ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:-elastic}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-smart123}
+      ROCKETMQ_NAME_SERVER: ${ROCKETMQ_NAME_SERVER:-rocketmq-nameserver:9876}
+    depends_on:
+      nacos:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - smart-agent-net
+
+  # ========== 前端 ==========
+
+  # Nginx 前端 + 反向代理（统一入口）
+  frontend:
+    build:
+      context: ..
+      dockerfile: env/Dockerfile.frontend
+    image: smart-agent-frontend:latest
+    container_name: smart-agent-frontend
+    restart: always
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - gateway
+    networks:
+      - smart-agent-net
+
+# ========== 网络与卷 ==========
+
+networks:
+  smart-agent-net:
+    driver: bridge
+    name: smart-agent-net
+
+volumes:
+  mysql-data:
+  redis-data:
+  elasticsearch-data:
+  etcd-data:
+  minio-data:
+  milvus-data:

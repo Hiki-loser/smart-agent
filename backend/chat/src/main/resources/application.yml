@@ -1,0 +1,80 @@
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  application:
+    name: smart-agent-chat
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    serialization:
+      write-dates-as-timestamps: false
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/smart-agent-chat?useUnicode=true&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        register-enabled: true
+        prefer-ip-address: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DB:0}
+      password: ${REDIS_PASSWORD:}
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
+    username: ${ELASTICSEARCH_USERNAME:elastic}
+    password: ${ELASTICSEARCH_PASSWORD:smart123}
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.smartagent.chat.entity
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER:localhost:9876}
+  producer:
+    group: ${ROCKETMQ_PRODUCER_GROUP:chat-producer-group}
+
+chat:
+  archive:
+    elasticsearch:
+      index: chat-message-archive
+  mq:
+    topic:
+      message-archive: message-archive-topic
+    consumer:
+      message-archive-group: message-archive-consumer-group
+  memory:
+    service-url: ${MEMORY_SERVICE_URL:http://localhost:8086}
+    recent-message-limit: 12
+    summary-trigger-round-threshold: 3
+    summary-session-round-warning: 200
+
+ai:
+  model:
+    api-key: ${AI_MODEL_API_KEY:}
+    base-url: ${AI_MODEL_BASE_URL:https://api.deepseek.com}
+    chat-model-name: ${AI_MODEL_CHAT_MODEL:deepseek-v4-pro}
+    streaming-chat-model-name: ${AI_MODEL_STREAMING_CHAT_MODEL:deepseek-v4-pro}
+    embedding-model-name: ${AI_MODEL_EMBEDDING_MODEL:}
+    temperature: 0.7
+    timeout-seconds: 60
+    max-retries: 3
+    retry-delay-ms: 1000
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY:}
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+      pro-model-name: ${DEEPSEEK_PRO_MODEL:deepseek-v4-pro}
+      flash-model-name: ${DEEPSEEK_FLASH_MODEL:deepseek-v4-flash}
+      default-temperature: 0.7
+      default-max-tokens: 4096
+
+server:
+  port: 8082
+  servlet:
+    context-path: /

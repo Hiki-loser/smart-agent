@@ -1,0 +1,56 @@
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  main:
+    web-application-type: reactive
+  application:
+    name: smart-agent-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        register-enabled: true
+        prefer-ip-address: true
+    gateway:
+      routes:
+        # 用户服务路由
+        - id: user-service
+          uri: lb://smart-agent-user
+          predicates:
+            - Path=/api/user/**
+        # 聊天服务路由
+        - id: chat-service
+          uri: lb://smart-agent-chat
+          predicates:
+            - Path=/api/chat/**
+        # 模型服务路由
+        - id: model-service
+          uri: lb://smart-agent-model
+          predicates:
+            - Path=/api/model/**
+        # 记忆服务路由
+        - id: memory-service
+          uri: lb://smart-agent-memory
+          predicates:
+            - Path=/api/memory/**
+  jwt:
+    secret: ${JWT_SECRET:smart-agent-secret-key-smart-agent-2026}
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:0}
+      timeout: 5000ms
+
+
+server:
+  port: 8080
+
+# 日志配置
+logging:
+  level:
+    com.smartagent.gateway: info
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%X{X-Trace-Id}] - %msg%n"

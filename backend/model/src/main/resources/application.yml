@@ -1,0 +1,40 @@
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  config:
+    import:
+      - optional:classpath:application-local.yml
+      - optional:file:./application-local.yml
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  application:
+    name: smart-agent-model
+
+server:
+  port: 8085
+  servlet:
+    context-path: /
+
+# AI Model Configuration
+ai:
+  model:
+    # ── Shared settings (AIModelConfig, prefix = "ai.model") ──
+    api-key: ${AI_MODEL_API_KEY:}
+    base-url: ${AI_MODEL_BASE_URL:https://api.deepseek.com}
+    chat-model-name: ${AI_MODEL_CHAT_MODEL:deepseek-v4-pro}
+    streaming-chat-model-name: ${AI_MODEL_STREAMING_CHAT_MODEL:${AI_MODEL_CHAT_MODEL:deepseek-v4-pro}}
+    embedding-model-name: ${AI_MODEL_EMBEDDING_MODEL:text-embedding-v4}
+    temperature: ${AI_MODEL_TEMPERATURE:0.7}
+    timeout-seconds: ${AI_MODEL_TIMEOUT_SECONDS:60}
+    max-retries: 3
+    retry-delay-ms: 1000
+
+    # ── DeepSeek provider settings (DeepSeekModelConfig, prefix = "ai.model.deepseek") ──
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY:}
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+      pro-model-name: ${DEEPSEEK_PRO_MODEL:deepseek-v4-pro}
+      flash-model-name: ${DEEPSEEK_FLASH_MODEL:deepseek-v4-flash}
+      default-temperature: 0.7
+      default-max-tokens: 4096

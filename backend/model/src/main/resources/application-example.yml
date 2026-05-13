@@ -1,0 +1,18 @@
+ai:
+  model:
+    api-key: "your_api_key_here"
+    base-url: "https://api.deepseek.com"
+    chat-model-name: "deepseek-v4-pro"
+    streaming-chat-model-name: "deepseek-v4-pro"
+    embedding-model-name: "text-embedding-v4"
+    temperature: 0.7
+    timeout-seconds: 60
+    max-retries: 3
+    retry-delay-ms: 1000
+    deepseek:
+      api-key: ""
+      base-url: "https://api.deepseek.com"
+      pro-model-name: "deepseek-v4-pro"
+      flash-model-name: "deepseek-v4-flash"
+      default-temperature: 0.7
+      default-max-tokens: 4096

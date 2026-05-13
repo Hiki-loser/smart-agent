@@ -1,0 +1,12 @@
+ai:
+  model:
+    api-key: "your_dashscope_api_key"
+    base-url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    chat-model-name: "qwen-plus"
+    streaming-chat-model-name: "qwen-plus"
+    embedding-model-name: "text-embedding-v4"
+    embedding-dimension: 1024
+    temperature: 0.7
+    timeout-seconds: 60
+    max-retries: 3
+    retry-delay-ms: 1000
