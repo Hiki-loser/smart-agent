@@ -13,7 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 知识库控制器
@@ -164,5 +166,17 @@ public class KnowledgeController {
             log.error("Failed to delete document: {}", e.getMessage(), e);
             return ApiResponse.error(ResultCode.SERVER_ERROR);
         }
+    }
+
+    /**
+     * 健康检查 - 返回向量存储后端状态
+     */
+    @GetMapping("/health")
+    public ApiResponse<Map<String, Object>> healthCheck() {
+        Map<String, Object> health = new HashMap<>();
+        health.put("service", "smart-agent-knowledge");
+        health.put("status", "UP");
+        health.put("vectorStore", knowledgeService.getVectorStoreInfo());
+        return ApiResponse.success(health);
     }
 }

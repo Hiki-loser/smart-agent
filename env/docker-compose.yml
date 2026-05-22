@@ -259,6 +259,36 @@ services:
     networks:
       - smart-agent-net
 
+  # 知识库服务
+  knowledge:
+    build:
+      context: ..
+      dockerfile: env/Dockerfile.knowledge
+    image: smart-agent-knowledge:latest
+    container_name: smart-agent-knowledge
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      NACOS_SERVER_ADDR: nacos:8848
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USERNAME: ${MYSQL_USERNAME:-root}
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      VECTOR_STORE_TYPE: ${VECTOR_STORE_TYPE:-elasticsearch}
+      ELASTICSEARCH_URIS: ${ELASTICSEARCH_URIS:-http://elasticsearch:9200}
+      ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:-elastic}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-smart123}
+      ROCKETMQ_NAME_SERVER: ${ROCKETMQ_NAME_SERVER:-rocketmq-nameserver:9876}
+    depends_on:
+      nacos:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - smart-agent-net
+
   # ========== 前端 ==========
 
   # Nginx 前端 + 反向代理（统一入口）

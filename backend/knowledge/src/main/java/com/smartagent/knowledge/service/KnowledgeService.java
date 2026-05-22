@@ -8,6 +8,7 @@ import com.smartagent.knowledge.vo.QueryResultVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 知识库服务接口
@@ -81,4 +82,11 @@ public interface KnowledgeService {
      * @return 是否删除成功
      */
     boolean deleteDocument(Long documentId);
+
+    /**
+     * 获取向量存储后端信息
+     *
+     * @return 向量存储信息
+     */
+    Map<String, Object> getVectorStoreInfo();
 }

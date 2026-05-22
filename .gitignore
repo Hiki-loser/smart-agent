@@ -98,7 +98,7 @@ docker-compose.override.yml
 **.jar
 **.war
 **.ear
-
+**/target/
 ############################
 # IDE
 ############################

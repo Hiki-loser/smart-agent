@@ -33,6 +33,17 @@ milvus:
   port: ${MILVUS_PORT:19530}
   collection-name: ${MILVUS_COLLECTION_NAME:smart_agent_knowledge}
 
+# 向量存储后端选择：milvus | elasticsearch
+vector-store:
+  type: ${VECTOR_STORE_TYPE:elasticsearch}
+  index-name: ${VECTOR_STORE_INDEX_NAME:smart_agent_knowledge}
+
+# Elasticsearch 向量数据库配置
+elasticsearch:
+  uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
+  username: ${ELASTICSEARCH_USERNAME:elastic}
+  password: ${ELASTICSEARCH_PASSWORD:smart123}
+
 rocketmq:
   name-server: localhost:9876
   producer:

@@ -16,9 +16,17 @@ import com.smartagent.knowledge.vo.DocumentVO;
 import com.smartagent.knowledge.vo.KnowledgeBaseVO;
 import com.smartagent.knowledge.vo.QueryResultVO;
 import com.smartagent.common.utils.UserContextUtils;
+import dev.langchain4j.data.embedding.Embedding;
+import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.store.embedding.EmbeddingMatch;
+import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
+import dev.langchain4j.store.embedding.EmbeddingStore;
+import dev.langchain4j.store.embedding.filter.comparison.IsEqualTo;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,12 +37,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 知识库服务实现类
- * 实现知识库相关的核心业务逻辑
+ * 实现知识库相关的核心业务逻辑，支持 Milvus 和 Elasticsearch 双向量后端
  *
  * @author SmartAgent
  * @since 1.0.0
@@ -52,26 +63,33 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     @Resource
     private RocketMQProducer rocketMQProducer;
 
+    @Resource
+    private EmbeddingModel embeddingModel;
+
+    @Resource
+    private EmbeddingStore<TextSegment> embeddingStore;
+
+    @Value("${vector-store.type:elasticsearch}")
+    private String vectorStoreType;
+
     private static final String UPLOAD_DIR = "uploads/";
 
     @Override
     @Transactional
     public KnowledgeBaseVO createKnowledgeBase(CreateKnowledgeBaseDTO dto) {
         Long userId = UserContextUtils.getUserId();
-        
-        // 创建知识库
+
         KnowledgeBaseEntity knowledgeBase = new KnowledgeBaseEntity();
         knowledgeBase.setUserId(userId);
         knowledgeBase.setName(dto.getName());
         knowledgeBase.setDescription(dto.getDescription());
-        knowledgeBase.setStatus(0); // 初始化中
+        knowledgeBase.setStatus(0);
         knowledgeBase.setDocumentCount(0);
         knowledgeBase.setCreatedAt(LocalDateTime.now());
         knowledgeBase.setUpdatedAt(LocalDateTime.now());
 
         knowledgeBaseMapper.insert(knowledgeBase);
 
-        // 发送知识库创建事件
         KnowledgeBaseCreateEvent event = new KnowledgeBaseCreateEvent();
         event.setKnowledgeBaseId(knowledgeBase.getId());
         event.setUserId(userId);
@@ -79,7 +97,6 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         event.setDescription(dto.getDescription());
         rocketMQProducer.sendKnowledgeBaseCreateEvent(event);
 
-        // 转换为 VO
         KnowledgeBaseVO knowledgeBaseVO = new KnowledgeBaseVO();
         BeanUtils.copyProperties(knowledgeBase, knowledgeBaseVO);
 
@@ -90,48 +107,41 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     @Transactional
     public DocumentVO uploadDocument(Long knowledgeBaseId, MultipartFile file) {
         Long userId = UserContextUtils.getUserId();
-        
-        // 校验知识库是否存在且用户有权限
+
         KnowledgeBaseEntity knowledgeBase = knowledgeBaseMapper.selectById(knowledgeBaseId);
         if (knowledgeBase == null || !knowledgeBase.getUserId().equals(userId)) {
             throw new RuntimeException("知识库不存在或无权限");
         }
 
         try {
-            // 确保上传目录存在
             Path uploadPath = Paths.get(UPLOAD_DIR);
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
 
-            // 生成唯一文件名
             String originalFilename = file.getOriginalFilename();
             String extension = originalFilename != null ? originalFilename.substring(originalFilename.lastIndexOf('.')) : ".bin";
             String fileName = UUID.randomUUID().toString() + extension;
             Path filePath = uploadPath.resolve(fileName);
 
-            // 保存文件
             Files.copy(file.getInputStream(), filePath);
 
-            // 创建文档记录
             DocumentEntity document = new DocumentEntity();
             document.setKnowledgeBaseId(knowledgeBaseId);
             document.setName(originalFilename);
             document.setType(file.getContentType());
             document.setSize(file.getSize());
-            document.setStatus(1); // 处理中
+            document.setStatus(1);
             document.setStoragePath(filePath.toString());
             document.setCreatedAt(LocalDateTime.now());
             document.setUpdatedAt(LocalDateTime.now());
 
             documentMapper.insert(document);
 
-            // 更新知识库文档计数
             knowledgeBase.setDocumentCount(knowledgeBase.getDocumentCount() + 1);
             knowledgeBase.setUpdatedAt(LocalDateTime.now());
             knowledgeBaseMapper.updateById(knowledgeBase);
 
-            // 发送文档上传事件
             DocumentUploadEvent event = new DocumentUploadEvent();
             event.setDocumentId(document.getId());
             event.setKnowledgeBaseId(knowledgeBaseId);
@@ -142,7 +152,6 @@ public class KnowledgeServiceImpl implements KnowledgeService {
             event.setStoragePath(filePath.toString());
             rocketMQProducer.sendDocumentUploadEvent(event);
 
-            // 转换为 VO
             DocumentVO documentVO = new DocumentVO();
             BeanUtils.copyProperties(document, documentVO);
 
@@ -156,165 +165,195 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     @Override
     public QueryResultVO queryKnowledgeBase(QueryDTO dto) {
         Long userId = UserContextUtils.getUserId();
-        
-        // 校验知识库是否存在且用户有权限
+
         KnowledgeBaseEntity knowledgeBase = knowledgeBaseMapper.selectById(dto.getKnowledgeBaseId());
         if (knowledgeBase == null || !knowledgeBase.getUserId().equals(userId)) {
             throw new RuntimeException("知识库不存在或无权限");
         }
 
-        // 生成查询ID
         String queryId = UUID.randomUUID().toString();
         long startTime = System.currentTimeMillis();
 
-        // 发送知识库查询事件
-        KnowledgeQueryEvent event = new KnowledgeQueryEvent();
-        event.setQueryId(queryId);
-        event.setKnowledgeBaseId(dto.getKnowledgeBaseId());
-        event.setUserId(userId);
-        event.setQuery(dto.getQuery());
-        event.setSimilarityThreshold(dto.getSimilarityThreshold());
-        event.setTopK(dto.getTopK());
-        rocketMQProducer.sendKnowledgeQueryEvent(event);
+        log.info("Executing vector search for query: [{}] in knowledgeBaseId={}, topK={}, threshold={}",
+                dto.getQuery(), dto.getKnowledgeBaseId(), dto.getTopK(), dto.getSimilarityThreshold());
 
-        // TODO: 当前仍是同步返回占位结果。要实现真正查询闭环，需要引入查询结果存储与回执机制
-        // TODO: 建议新增依赖 spring-boot-starter-data-redis，用 queryId 作为 key 存储 core 回传结果并设置超时轮询/阻塞等待
-        // 模拟查询结果（实际项目中应该等待MQ消息返回结果）
-        QueryResultVO resultVO = new QueryResultVO();
-        resultVO.setQueryId(queryId);
-        resultVO.setQuery(dto.getQuery());
-        resultVO.setAnswer("这是一个模拟的回答，实际项目中应该由核心服务生成");
-        resultVO.setExecutionTime(System.currentTimeMillis() - startTime);
+        try {
+            // 1. 将查询文本向量化
+            Embedding queryEmbedding = embeddingModel.embed(dto.getQuery()).content();
 
-        // 模拟文档片段
-        List<QueryResultVO.DocumentFragmentVO> fragments = new ArrayList<>();
-        QueryResultVO.DocumentFragmentVO fragment = new QueryResultVO.DocumentFragmentVO();
-        fragment.setDocumentId(1L);
-        fragment.setDocumentName("示例文档.pdf");
-        fragment.setContent("这是文档中的一段内容，与查询相关");
-        fragment.setSimilarity(0.95);
-        fragment.setPageNumber(1);
-        fragments.add(fragment);
-        resultVO.setDocumentFragments(fragments);
+            // 2. 构建向量搜索请求（按知识库ID过滤）
+            int topK = dto.getTopK() != null ? dto.getTopK() : 5;
+            double minScore = dto.getSimilarityThreshold() != null ? dto.getSimilarityThreshold() : 0.7;
 
-        return resultVO;
+            EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
+                    .queryEmbedding(queryEmbedding)
+                    .maxResults(topK)
+                    .minScore(minScore)
+                    .filter(new IsEqualTo("metadata.knowledgeBaseId", dto.getKnowledgeBaseId()))
+                    .build();
+
+            // 3. 执行向量搜索
+            List<EmbeddingMatch<TextSegment>> matches = embeddingStore.search(searchRequest).matches();
+
+            // 4. 构建返回结果
+            QueryResultVO resultVO = new QueryResultVO();
+            resultVO.setQueryId(queryId);
+            resultVO.setQuery(dto.getQuery());
+            resultVO.setExecutionTime(System.currentTimeMillis() - startTime);
+
+            List<QueryResultVO.DocumentFragmentVO> fragments = matches.stream()
+                    .map(match -> {
+                        QueryResultVO.DocumentFragmentVO fragment = new QueryResultVO.DocumentFragmentVO();
+                        TextSegment segment = match.embedded();
+                        if (segment != null) {
+                            fragment.setContent(segment.text());
+                            fragment.setSimilarity(match.score());
+                            Object docId = segment.metadata().get("documentId");
+                            if (docId instanceof Number) {
+                                fragment.setDocumentId(((Number) docId).longValue());
+                            }
+                            Object docName = segment.metadata().get("documentName");
+                            if (docName != null) {
+                                fragment.setDocumentName(docName.toString());
+                            }
+                            Object pageNum = segment.metadata().get("pageNumber");
+                            if (pageNum instanceof Number) {
+                                fragment.setPageNumber(((Number) pageNum).intValue());
+                            }
+                        }
+                        return fragment;
+                    })
+                    .collect(Collectors.toList());
+
+            resultVO.setDocumentFragments(fragments);
+            resultVO.setAnswer(fragments.isEmpty()
+                    ? "未找到相关文档内容"
+                    : "找到 " + fragments.size() + " 个相关片段");
+
+            // 5. 发送 MQ 事件用于异步归档
+            KnowledgeQueryEvent event = new KnowledgeQueryEvent();
+            event.setQueryId(queryId);
+            event.setKnowledgeBaseId(dto.getKnowledgeBaseId());
+            event.setUserId(userId);
+            event.setQuery(dto.getQuery());
+            event.setSimilarityThreshold(dto.getSimilarityThreshold());
+            event.setTopK(dto.getTopK());
+            rocketMQProducer.sendKnowledgeQueryEvent(event);
+
+            return resultVO;
+
+        } catch (Exception e) {
+            log.error("Vector search failed: {}", e.getMessage(), e);
+            QueryResultVO errorVO = new QueryResultVO();
+            errorVO.setQueryId(queryId);
+            errorVO.setQuery(dto.getQuery());
+            errorVO.setAnswer("向量检索失败: " + e.getMessage());
+            errorVO.setExecutionTime(System.currentTimeMillis() - startTime);
+            errorVO.setDocumentFragments(new ArrayList<>());
+            return errorVO;
+        }
     }
 
     @Override
     public List<KnowledgeBaseVO> getKnowledgeBaseList() {
         Long userId = UserContextUtils.getUserId();
-        
-        // 查询用户的知识库列表
-        LambdaQueryWrapper<KnowledgeBaseEntity> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(KnowledgeBaseEntity::getUserId, userId)
-                .orderByDesc(KnowledgeBaseEntity::getCreatedAt);
 
-        List<KnowledgeBaseEntity> knowledgeBases = knowledgeBaseMapper.selectList(queryWrapper);
+        LambdaQueryWrapper<KnowledgeBaseEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(KnowledgeBaseEntity::getUserId, userId);
+        List<KnowledgeBaseEntity> knowledgeBaseList = knowledgeBaseMapper.selectList(wrapper);
 
-        // 转换为 VO
-        List<KnowledgeBaseVO> knowledgeBaseVOs = new ArrayList<>();
-        for (KnowledgeBaseEntity knowledgeBase : knowledgeBases) {
-            KnowledgeBaseVO knowledgeBaseVO = new KnowledgeBaseVO();
-            BeanUtils.copyProperties(knowledgeBase, knowledgeBaseVO);
-            knowledgeBaseVOs.add(knowledgeBaseVO);
-        }
-
-        return knowledgeBaseVOs;
+        return knowledgeBaseList.stream().map(entity -> {
+            KnowledgeBaseVO vo = new KnowledgeBaseVO();
+            BeanUtils.copyProperties(entity, vo);
+            return vo;
+        }).collect(Collectors.toList());
     }
 
     @Override
     public KnowledgeBaseVO getKnowledgeBaseDetail(Long knowledgeBaseId) {
         Long userId = UserContextUtils.getUserId();
-        
-        // 校验知识库是否存在且用户有权限
+
         KnowledgeBaseEntity knowledgeBase = knowledgeBaseMapper.selectById(knowledgeBaseId);
         if (knowledgeBase == null || !knowledgeBase.getUserId().equals(userId)) {
             throw new RuntimeException("知识库不存在或无权限");
         }
 
-        // 转换为 VO
-        KnowledgeBaseVO knowledgeBaseVO = new KnowledgeBaseVO();
-        BeanUtils.copyProperties(knowledgeBase, knowledgeBaseVO);
-
-        return knowledgeBaseVO;
+        KnowledgeBaseVO vo = new KnowledgeBaseVO();
+        BeanUtils.copyProperties(knowledgeBase, vo);
+        return vo;
     }
 
     @Override
     public List<DocumentVO> getDocumentList(Long knowledgeBaseId) {
         Long userId = UserContextUtils.getUserId();
-        
-        // 校验知识库是否存在且用户有权限
+
         KnowledgeBaseEntity knowledgeBase = knowledgeBaseMapper.selectById(knowledgeBaseId);
         if (knowledgeBase == null || !knowledgeBase.getUserId().equals(userId)) {
             throw new RuntimeException("知识库不存在或无权限");
         }
 
-        // 查询文档列表
-        LambdaQueryWrapper<DocumentEntity> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(DocumentEntity::getKnowledgeBaseId, knowledgeBaseId)
-                .orderByDesc(DocumentEntity::getCreatedAt);
+        LambdaQueryWrapper<DocumentEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(DocumentEntity::getKnowledgeBaseId, knowledgeBaseId);
+        List<DocumentEntity> documentList = documentMapper.selectList(wrapper);
 
-        List<DocumentEntity> documents = documentMapper.selectList(queryWrapper);
-
-        // 转换为 VO
-        List<DocumentVO> documentVOs = new ArrayList<>();
-        for (DocumentEntity document : documents) {
-            DocumentVO documentVO = new DocumentVO();
-            BeanUtils.copyProperties(document, documentVO);
-            documentVOs.add(documentVO);
-        }
-
-        return documentVOs;
+        return documentList.stream().map(entity -> {
+            DocumentVO vo = new DocumentVO();
+            BeanUtils.copyProperties(entity, vo);
+            return vo;
+        }).collect(Collectors.toList());
     }
 
     @Override
     @Transactional
     public boolean deleteKnowledgeBase(Long knowledgeBaseId) {
         Long userId = UserContextUtils.getUserId();
-        
-        // 校验知识库是否存在且用户有权限
+
         KnowledgeBaseEntity knowledgeBase = knowledgeBaseMapper.selectById(knowledgeBaseId);
         if (knowledgeBase == null || !knowledgeBase.getUserId().equals(userId)) {
             throw new RuntimeException("知识库不存在或无权限");
         }
 
-        // 删除相关文档
-        LambdaQueryWrapper<DocumentEntity> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(DocumentEntity::getKnowledgeBaseId, knowledgeBaseId);
-        documentMapper.delete(queryWrapper);
+        LambdaQueryWrapper<DocumentEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(DocumentEntity::getKnowledgeBaseId, knowledgeBaseId);
+        documentMapper.delete(wrapper);
+        knowledgeBaseMapper.deleteById(knowledgeBaseId);
 
-        // 删除知识库
-        int result = knowledgeBaseMapper.deleteById(knowledgeBaseId);
-        return result > 0;
+        return true;
     }
 
     @Override
     @Transactional
     public boolean deleteDocument(Long documentId) {
-        Long userId = UserContextUtils.getUserId();
-        
-        // 校验文档是否存在
         DocumentEntity document = documentMapper.selectById(documentId);
         if (document == null) {
             throw new RuntimeException("文档不存在");
         }
 
-        // 校验知识库是否存在且用户有权限
         KnowledgeBaseEntity knowledgeBase = knowledgeBaseMapper.selectById(document.getKnowledgeBaseId());
-        if (knowledgeBase == null || !knowledgeBase.getUserId().equals(userId)) {
-            throw new RuntimeException("知识库不存在或无权限");
+        if (knowledgeBase == null || !knowledgeBase.getUserId().equals(UserContextUtils.getUserId())) {
+            throw new RuntimeException("无权限");
         }
 
-        // 删除文档
-        int result = documentMapper.deleteById(documentId);
-        
-        // 更新知识库文档计数
-        if (result > 0) {
-            knowledgeBase.setDocumentCount(knowledgeBase.getDocumentCount() - 1);
-            knowledgeBase.setUpdatedAt(LocalDateTime.now());
-            knowledgeBaseMapper.updateById(knowledgeBase);
+        try {
+            Files.deleteIfExists(Paths.get(document.getStoragePath()));
+        } catch (IOException e) {
+            log.warn("Failed to delete file: {}", document.getStoragePath(), e);
         }
 
-        return result > 0;
+        documentMapper.deleteById(documentId);
+
+        knowledgeBase.setDocumentCount(Math.max(0, knowledgeBase.getDocumentCount() - 1));
+        knowledgeBase.setUpdatedAt(LocalDateTime.now());
+        knowledgeBaseMapper.updateById(knowledgeBase);
+
+        return true;
+    }
+
+    @Override
+    public Map<String, Object> getVectorStoreInfo() {
+        Map<String, Object> info = new HashMap<>();
+        info.put("type", vectorStoreType);
+        info.put("embeddingStoreClass", embeddingStore.getClass().getSimpleName());
+        return info;
     }
 }

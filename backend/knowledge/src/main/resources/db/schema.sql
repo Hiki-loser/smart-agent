@@ -35,6 +35,8 @@ CREATE TABLE `document` (
                            `storage_path` VARCHAR(512) DEFAULT NULL COMMENT '存储路径',
                            `page_count` INT DEFAULT 0 COMMENT '页数（如果适用）',
                            `token_count` INT DEFAULT 0 COMMENT 'Token数量',
+                           `chunk_count` INT DEFAULT 0 COMMENT '切片数量',
+                           `error_msg` TEXT DEFAULT NULL COMMENT '错误信息',
                            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                            `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                            PRIMARY KEY (`id`) USING BTREE,
